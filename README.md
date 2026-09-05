@@ -13,6 +13,8 @@ Zakresy numerów:
 
 Dane pomiarowe są przechowywane lokalnie w przeglądarce urządzenia. Dla każdego piętra można wskazać ostatni wykorzystany numer; dalsze numery z tego zakresu nie są wtedy liczone ani umieszczane w raporcie. Przy błędzie można wybrać uszkodzony kabel, błędnie zakończone gniazdko, błędnie zakończony keystone albo wpisać własny opis. Aplikacja generuje raport do wydruku/PDF, eksport CSV zgodny z Excelem oraz kopię bezpieczeństwa JSON.
 
+Pojedynczy wynik można usunąć przyciskiem **Usuń zapis** widocznym przy aktualnym gniazdku. Usunięty numer wraca do stanu **Nie sprawdzono** i znika z podsumowania oraz raportu.
+
 ## Trwałość danych
 
 - Zamknięcie aplikacji lub ponowne uruchomienie telefonu nie usuwa wyników.

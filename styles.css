@@ -143,6 +143,10 @@ main { padding: 16px 14px calc(104px + env(safe-area-inset-bottom)); }
 .current-status.unmade { color: var(--amber-700); background: var(--amber-100); }
 .current-status.unmade .status-dot { background: var(--amber-500); }
 .current-note { max-width: 500px; margin: 10px auto 0; color: var(--red-700); font-size: .88rem; font-weight: 650; }
+.delete-record-button { display: inline-flex; min-height: 42px; margin: 12px auto 0; padding: 0 14px; border: 1px solid #e0b6b9; border-radius: 12px; align-items: center; justify-content: center; gap: 7px; color: var(--red-700); background: #fff; font-size: .8rem; font-weight: 850; }
+.delete-record-button[hidden] { display: none; }
+.delete-record-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.delete-record-button:active { color: #fff; background: var(--red-600); }
 
 .floor-end-button {
   display: grid;

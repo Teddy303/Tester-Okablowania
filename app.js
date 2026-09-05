@@ -54,6 +54,7 @@
     rangeLabel: $("#rangeLabel"),
     currentStatus: $("#currentStatus"),
     currentNote: $("#currentNote"),
+    deleteRecordButton: $("#deleteRecordButton"),
     floorEndButton: $("#floorEndButton"),
     floorEndHelp: $("#floorEndHelp"),
     previousButton: $("#previousButton"),
@@ -212,6 +213,7 @@
       els.currentNote.textContent = "";
       els.currentNote.hidden = true;
     }
+    els.deleteRecordButton.hidden = !record;
   }
 
   function markCurrent(status, note = "") {
@@ -231,6 +233,16 @@
       actionLocked = false;
       els.actionButtons.forEach((button) => { button.disabled = false; });
     }, 330);
+  }
+
+  function deleteCurrentRecord() {
+    const number = currentNumber();
+    if (!state.records[number]) return;
+    if (!window.confirm(`Usunąć zapis dla gniazdka ${number}? Gniazdko wróci do stanu „Nie sprawdzono”.`)) return;
+    delete state.records[number];
+    saveState();
+    render();
+    showToast(`${number} — zapis usunięty.`);
   }
 
   function advance(afterSave = false) {
@@ -685,6 +697,7 @@
   $("#nextButton").addEventListener("click", () => advance(false));
   $("#smallNextButton").addEventListener("click", () => advance(false));
   els.previousButton.addEventListener("click", goPrevious);
+  els.deleteRecordButton.addEventListener("click", deleteCurrentRecord);
   els.floorEndButton.addEventListener("click", toggleFloorEnd);
   $("#numberButton").addEventListener("click", openJumpDialog);
   $("#settingsButton").addEventListener("click", openSettingsDialog);
