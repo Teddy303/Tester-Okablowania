@@ -119,7 +119,7 @@
           <label class="search-field">
             <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
             <span class="sr-only">Szukaj numeru lub opisu błędu</span>
-            <input id="resultsSearch" type="search" inputmode="numeric" placeholder="Szukaj numeru lub opisu…" autocomplete="off" />
+            <input id="resultsSearch" type="search" placeholder="Szukaj numeru lub opisu…" autocomplete="off" />
           </label>
 
           <div class="filter-row" id="filterRow" aria-label="Filtr wyników">
@@ -233,14 +233,9 @@
           <button class="dialog-close" type="button" data-close-dialog="jumpDialog" aria-label="Zamknij">×</button>
         </div>
         <label class="field-label" for="jumpInput">Numer gniazdka</label>
-        <input id="jumpInput" class="number-input" type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="np. 2037" required />
+        <input id="jumpInput" class="number-input" type="text" maxlength="20" autocomplete="off" placeholder="np. 2037" required />
         <p id="jumpError" class="field-error" role="alert" hidden>Ten numer nie występuje na liście.</p>
-        <div class="range-shortcuts" aria-label="Początek zakresu">
-          <button type="button" data-jump="0001">0001</button>
-          <button type="button" data-jump="1001">1001</button>
-          <button type="button" data-jump="2001">2001</button>
-          <button type="button" data-jump="3001">3001</button>
-        </div>
+        <div id="rangeShortcuts" class="range-shortcuts" aria-label="Początek zakresu"></div>
         <div class="dialog-actions">
           <button class="secondary" type="button" data-close-dialog="jumpDialog">Anuluj</button>
           <button class="primary" type="submit">Przejdź</button>
@@ -261,6 +256,39 @@
         <input id="projectName" type="text" maxlength="100" placeholder="np. Biurowiec — Gdańsk" />
         <label class="field-label" for="testerName">Osoba testująca</label>
         <input id="testerName" type="text" maxlength="80" placeholder="Imię i nazwisko" />
+
+        <section class="config-section" aria-labelledby="socketConfigTitle">
+          <div class="config-section-head">
+            <div>
+              <p class="eyebrow dark">UKŁAD OBIEKTU</p>
+              <h3 id="socketConfigTitle">Konfiguracja gniazdek</h3>
+            </div>
+            <span id="configTotal">519 punktów</span>
+          </div>
+
+          <label class="field-label" for="numberingMode">Sposób numeracji</label>
+          <select id="numberingMode">
+            <option value="numeric">4-cyfrowa — 0001, 1001, 2001…</option>
+            <option value="floorSocket">Piętro i gniazdko — P0 S1, P1 S1…</option>
+          </select>
+
+          <div class="config-pair">
+            <label>
+              <span>Pierwsza kondygnacja</span>
+              <select id="startFloor">
+                <option value="0">Parter (0)</option>
+                <option value="1">Piętro 1</option>
+              </select>
+            </label>
+            <label>
+              <span>Liczba kondygnacji</span>
+              <input id="floorCount" type="number" inputmode="numeric" min="1" max="10" value="4" />
+            </label>
+          </div>
+
+          <div id="floorConfigRows" class="floor-config-rows"></div>
+          <p id="configWarning" class="config-warning">Liczbę gniazdek można ustawić osobno dla każdej kondygnacji.</p>
+        </section>
         <div class="dialog-actions">
           <button class="primary wide" type="submit">Zapisz ustawienia</button>
         </div>

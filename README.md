@@ -15,6 +15,8 @@ Dane pomiarowe są przechowywane lokalnie w przeglądarce urządzenia. Dla każd
 
 Pojedynczy wynik można usunąć przyciskiem **Usuń zapis** widocznym przy aktualnym gniazdku. Usunięty numer wraca do stanu **Nie sprawdzono** i znika z podsumowania oraz raportu.
 
+W ustawieniach znajduje się konfigurator obiektu. Pozwala wybrać liczbę kondygnacji, osobną liczbę gniazdek na każdej kondygnacji oraz jeden z dwóch sposobów numeracji: czterocyfrowy (`0001`, `1001`, `2001`…) albo piętro i gniazdko (`P0 S1`, `P1 S1`, `P2 S1`…). Zmiana konfiguracji nie kasuje wcześniejszych wyników; wyniki niepasujące do nowego układu pozostają zachowane i wracają po przywróceniu poprzedniej numeracji.
+
 ## Trwałość danych
 
 - Zamknięcie aplikacji lub ponowne uruchomienie telefonu nie usuwa wyników.

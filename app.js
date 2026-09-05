@@ -2,7 +2,7 @@
   "use strict";
 
   const STORAGE_KEY = "bp-tester-okablowania:v1";
-  const BACKUP_VERSION = 2;
+  const BACKUP_VERSION = 3;
   const STATUS_LABELS = {
     pending: "Nie sprawdzono",
     ok: "OK",
@@ -10,25 +10,82 @@
     unmade: "Gniazdko niezarobione"
   };
 
-  const ranges = [
-    { start: 1, end: 99, label: "0001–0099", floor: "Parter" },
-    { start: 1001, end: 1140, label: "1001–1140", floor: "Piętro 1" },
-    { start: 2001, end: 2140, label: "2001–2140", floor: "Piętro 2" },
-    { start: 3001, end: 3140, label: "3001–3140", floor: "Piętro 3" }
-  ];
+  const DEFAULT_CONFIG = {
+    numbering: "numeric",
+    startFloor: 0,
+    floors: [{ count: 99 }, { count: 140 }, { count: 140 }, { count: 140 }]
+  };
 
-  const numbers = ranges.flatMap((range) =>
-    Array.from({ length: range.end - range.start + 1 }, (_, offset) =>
-      String(range.start + offset).padStart(4, "0")
-    )
-  );
-  const numberIndex = new Map(numbers.map((number, index) => [number, index]));
+  let ranges = [];
+  let numbers = [];
+  let numberIndex = new Map();
+  let rangeByNumber = new Map();
+
+  function cloneDefaultConfig() {
+    return {
+      numbering: DEFAULT_CONFIG.numbering,
+      startFloor: DEFAULT_CONFIG.startFloor,
+      floors: DEFAULT_CONFIG.floors.map((floor) => ({ count: floor.count }))
+    };
+  }
+
+  function sanitizeConfig(value) {
+    const source = value && typeof value === "object" ? value : cloneDefaultConfig();
+    const numbering = source.numbering === "floorSocket" ? "floorSocket" : "numeric";
+    const startFloor = Number(source.startFloor) === 1 ? 1 : 0;
+    const maxFloors = 10 - startFloor;
+    const rawFloors = Array.isArray(source.floors) && source.floors.length
+      ? source.floors.slice(0, maxFloors)
+      : cloneDefaultConfig().floors;
+    const floors = rawFloors.map((floor) => ({
+      count: Math.min(999, Math.max(1, Number.parseInt(floor?.count ?? floor, 10) || 1))
+    }));
+    return { numbering, startFloor, floors };
+  }
+
+  function floorName(level) {
+    return level === 0 ? "Parter" : `Piętro ${level}`;
+  }
+
+  function socketLabel(numbering, level, socket) {
+    return numbering === "floorSocket"
+      ? `P${level} S${socket}`
+      : String((level * 1000) + socket).padStart(4, "0");
+  }
+
+  function buildStructure(config) {
+    return config.floors.map((floor, index) => {
+      const level = config.startFloor + index;
+      const floorNumbers = Array.from({ length: floor.count }, (_, offset) =>
+        socketLabel(config.numbering, level, offset + 1)
+      );
+      return {
+        id: `floor-${level}`,
+        level,
+        floor: floorName(level),
+        count: floor.count,
+        numbers: floorNumbers,
+        start: floorNumbers[0],
+        end: floorNumbers[floorNumbers.length - 1],
+        label: `${floorNumbers[0]}–${floorNumbers[floorNumbers.length - 1]}`
+      };
+    });
+  }
+
+  function rebuildStructure(config) {
+    ranges = buildStructure(config);
+    numbers = ranges.flatMap((range) => range.numbers);
+    numberIndex = new Map(numbers.map((number, index) => [number, index]));
+    rangeByNumber = new Map(ranges.flatMap((range) => range.numbers.map((number) => [number, range])));
+    document?.body?.setAttribute("data-numbering", config.numbering);
+  }
 
   const defaultState = () => ({
     version: BACKUP_VERSION,
     currentIndex: 0,
     records: {},
     floorEnds: {},
+    config: cloneDefaultConfig(),
     settings: { project: "", tester: "" }
   });
 
@@ -38,6 +95,7 @@
   let toastTimer = null;
   let actionLocked = false;
   let deferredInstallPrompt = null;
+  let configDraft = null;
 
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -70,9 +128,16 @@
     jumpDialog: $("#jumpDialog"),
     jumpInput: $("#jumpInput"),
     jumpError: $("#jumpError"),
+    rangeShortcuts: $("#rangeShortcuts"),
     settingsDialog: $("#settingsDialog"),
     projectName: $("#projectName"),
     testerName: $("#testerName"),
+    numberingMode: $("#numberingMode"),
+    startFloor: $("#startFloor"),
+    floorCount: $("#floorCount"),
+    floorConfigRows: $("#floorConfigRows"),
+    configTotal: $("#configTotal"),
+    configWarning: $("#configWarning"),
     installDialog: $("#installDialog"),
     restoreInput: $("#restoreInput"),
     toast: $("#toast")
@@ -81,25 +146,36 @@
   function loadState() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (!saved || typeof saved !== "object") return defaultState();
+      if (!saved || typeof saved !== "object") {
+        const fresh = defaultState();
+        rebuildStructure(fresh.config);
+        return fresh;
+      }
       const clean = defaultState();
+      clean.config = sanitizeConfig(saved.config);
+      rebuildStructure(clean.config);
       clean.currentIndex = Number.isInteger(saved.currentIndex)
         ? Math.min(Math.max(saved.currentIndex, 0), numbers.length - 1)
         : 0;
       clean.settings.project = String(saved.settings?.project || "").slice(0, 100);
       clean.settings.tester = String(saved.settings?.tester || "").slice(0, 80);
 
-      Object.entries(saved.floorEnds || {}).forEach(([rangeStart, rangeEnd]) => {
-        const range = ranges.find((item) => String(item.start) === String(rangeStart));
-        const numericEnd = Number(rangeEnd);
-        if (range && Number.isInteger(numericEnd) && numericEnd >= range.start && numericEnd <= range.end) {
-          clean.floorEnds[String(range.start)] = numericEnd;
-        }
+      ranges.forEach((range) => {
+        const legacyKey = clean.config.numbering === "numeric" ? String(Number(range.start)) : null;
+        const rawEnd = saved.floorEnds?.[range.id] ?? (legacyKey ? saved.floorEnds?.[legacyKey] : undefined);
+        const directEnd = String(rawEnd ?? "");
+        const migratedEnd = range.numbers.includes(directEnd)
+          ? directEnd
+          : clean.config.numbering === "numeric"
+            ? range.numbers.find((number) => Number(number) === Number(rawEnd))
+            : undefined;
+        if (migratedEnd) clean.floorEnds[range.id] = migratedEnd;
       });
 
       Object.entries(saved.records || {}).forEach(([number, record]) => {
-        if (!numberIndex.has(number) || !["ok", "error", "unmade"].includes(record?.status)) return;
-        clean.records[number] = {
+        const safeNumber = String(number).trim().slice(0, 40);
+        if (!safeNumber || !["ok", "error", "unmade"].includes(record?.status)) return;
+        clean.records[safeNumber] = {
           status: record.status,
           note: String(record.note || "").slice(0, 300),
           testedAt: isValidDate(record.testedAt) ? record.testedAt : new Date().toISOString()
@@ -107,7 +183,9 @@
       });
       return clean;
     } catch {
-      return defaultState();
+      const fresh = defaultState();
+      rebuildStructure(fresh.config);
+      return fresh;
     }
   }
 
@@ -128,28 +206,28 @@
   }
 
   function getRange(number) {
-    const numeric = Number(number);
-    return ranges.find((range) => numeric >= range.start && numeric <= range.end);
+    return rangeByNumber.get(number);
   }
 
   function getRangeEnd(range) {
-    return state.floorEnds[String(range.start)] ?? range.end;
+    const savedEnd = state.floorEnds[range.id];
+    return range.numbers.includes(savedEnd) ? savedEnd : range.end;
+  }
+
+  function getRangeNumbers(range) {
+    const endIndex = range.numbers.indexOf(getRangeEnd(range));
+    return range.numbers.slice(0, endIndex + 1);
   }
 
   function getReportNumbers() {
-    return ranges.flatMap((range) =>
-      Array.from({ length: getRangeEnd(range) - range.start + 1 }, (_, offset) =>
-        String(range.start + offset).padStart(4, "0")
-      )
-    );
+    return ranges.flatMap((range) => getRangeNumbers(range));
   }
 
   function ensureCurrentIsIncluded() {
     const number = currentNumber();
     const range = getRange(number);
-    if (Number(number) <= getRangeEnd(range)) return;
-    const rangeEndNumber = String(getRangeEnd(range)).padStart(4, "0");
-    state.currentIndex = numberIndex.get(rangeEndNumber);
+    if (!range || getRangeNumbers(range).includes(number)) return;
+    state.currentIndex = numberIndex.get(getRangeEnd(range));
     saveState();
   }
 
@@ -188,15 +266,14 @@
 
   function renderCurrent() {
     const number = currentNumber();
-    const numericNumber = Number(number);
     const range = getRange(number);
-    const configuredEnd = state.floorEnds[String(range.start)];
-    const isConfiguredEnd = configuredEnd === numericNumber;
+    const configuredEnd = state.floorEnds[range.id];
+    const isConfiguredEnd = configuredEnd === number;
     const record = state.records[number];
     const status = record?.status || "pending";
     els.currentNumber.textContent = number;
     els.rangeLabel.textContent = configuredEnd
-      ? `${range.floor} • do ${String(configuredEnd).padStart(4, "0")}`
+      ? `${range.floor} • do ${configuredEnd}`
       : `${range.floor} • ${range.label}`;
     els.currentStatus.className = `current-status ${status}`;
     els.currentStatus.querySelector("span:last-child").textContent = STATUS_LABELS[status];
@@ -274,12 +351,12 @@
 
   function toggleFloorEnd() {
     const number = currentNumber();
-    const numericNumber = Number(number);
     const range = getRange(number);
-    const key = String(range.start);
+    const currentPosition = range.numbers.indexOf(number);
+    const key = range.id;
     const configuredEnd = state.floorEnds[key];
 
-    if (configuredEnd === numericNumber) {
+    if (configuredEnd === number) {
       const confirmed = window.confirm(
         `Cofnąć oznaczenie końca dla: ${range.floor}? Raport ponownie obejmie pełny zakres ${range.label}.`
       );
@@ -291,11 +368,9 @@
       return;
     }
 
-    const skippedCount = range.end - numericNumber;
-    const hiddenResults = numbers.filter((item) => {
-      const value = Number(item);
-      return value > numericNumber && value <= range.end && state.records[item];
-    }).length;
+    const skippedCount = range.numbers.length - currentPosition - 1;
+    const hiddenResults = range.numbers.slice(currentPosition + 1)
+      .filter((item) => state.records[item]).length;
     const hiddenInfo = hiddenResults
       ? ` Zapisane wyniki powyżej tej granicy (${hiddenResults}) zostaną ukryte, ale nie usunięte.`
       : "";
@@ -310,14 +385,19 @@
     );
     if (!confirmed) return;
 
-    state.floorEnds[key] = numericNumber;
+    state.floorEnds[key] = number;
     saveState();
     render();
     showToast(`${range.floor} — raport kończy się na ${number}.`);
   }
 
   function goToNumber(number) {
-    const normalized = String(number).trim().padStart(4, "0");
+    const input = String(number).trim();
+    const compact = input.toLocaleUpperCase("pl").replace(/\s+/g, "");
+    const normalized = state.config.numbering === "numeric" && /^\d+$/.test(input)
+      ? input.padStart(4, "0")
+      : numbers.find((item) => item.toLocaleUpperCase("pl").replace(/\s+/g, "") === compact);
+    if (!normalized) return "missing";
     const index = numberIndex.get(normalized);
     if (index === undefined) return "missing";
     if (!getReportNumbers().includes(normalized)) return "excluded";
@@ -371,8 +451,8 @@
           : "Dotknij, aby przejść do testu";
       const shortLabel = status === "unmade" ? "Niezar." : STATUS_LABELS[status];
       return `
-        <button class="result-row" type="button" data-number="${number}" data-status="${status}">
-          <span class="result-number">${number}</span>
+        <button class="result-row" type="button" data-number="${escapeHtml(number)}" data-status="${status}">
+          <span class="result-number">${escapeHtml(number)}</span>
           <span class="result-detail"><strong>${escapeHtml(STATUS_LABELS[status])}</strong><small>${detail}</small></span>
           <span class="result-status">${escapeHtml(shortLabel)}</span>
         </button>`;
@@ -394,8 +474,8 @@
         : `Do sprawdzenia ${fewRemaining ? "pozostały" : "pozostało"} ${counts.pending} ${pluralize(counts.pending, "gniazdko", "gniazdka", "gniazdek")}.`;
     $("#reportRanges").innerHTML = ranges.map((range) => {
       const end = getRangeEnd(range);
-      const manuallyEnded = state.floorEnds[String(range.start)] !== undefined;
-      return `<span><b>${escapeHtml(range.floor)}</b>${String(range.start).padStart(4, "0")}–${String(end).padStart(4, "0")}${manuallyEnded ? " <em>• ostatni</em>" : ""}</span>`;
+      const manuallyEnded = state.floorEnds[range.id] !== undefined;
+      return `<span><b>${escapeHtml(range.floor)}</b>${escapeHtml(range.start)}–${escapeHtml(end)}${manuallyEnded ? " <em>• ostatni</em>" : ""}</span>`;
     }).join("");
   }
 
@@ -411,6 +491,12 @@
 
   function openJumpDialog() {
     els.jumpInput.value = currentNumber();
+    els.jumpInput.inputMode = state.config.numbering === "numeric" ? "numeric" : "text";
+    els.jumpInput.maxLength = state.config.numbering === "numeric" ? 4 : 20;
+    els.jumpInput.placeholder = state.config.numbering === "numeric" ? "np. 2037" : "np. P2 S37";
+    els.rangeShortcuts.innerHTML = ranges.map((range) =>
+      `<button type="button" data-jump="${escapeHtml(range.start)}">${escapeHtml(range.start)}</button>`
+    ).join("");
     els.jumpError.hidden = true;
     els.jumpDialog.showModal();
     window.setTimeout(() => {
@@ -419,10 +505,46 @@
     }, 50);
   }
 
+  function renderFloorConfigRows() {
+    if (!configDraft) return;
+    configDraft = sanitizeConfig(configDraft);
+    const draftRanges = buildStructure(configDraft);
+    const totalPoints = draftRanges.reduce((sum, range) => sum + range.count, 0);
+    els.floorCount.max = String(10 - configDraft.startFloor);
+    els.floorCount.value = String(configDraft.floors.length);
+    els.configTotal.textContent = `${totalPoints} ${pluralize(totalPoints, "punkt", "punkty", "punktów")}`;
+    els.floorConfigRows.innerHTML = draftRanges.map((range, index) => `
+      <div class="floor-config-row">
+        <div><strong>${escapeHtml(range.floor)}</strong><small data-range-preview="${index}">${escapeHtml(range.label)}</small></div>
+        <label><span>Liczba gniazd</span><input type="number" inputmode="numeric" min="1" max="999" value="${range.count}" data-floor-index="${index}" aria-label="Liczba gniazd — ${escapeHtml(range.floor)}" /></label>
+      </div>`).join("");
+    els.configWarning.textContent = configDraft.startFloor === 0
+      ? "Liczba kondygnacji obejmuje parter. Każde piętro może mieć inną liczbę gniazdek."
+      : "Numeracja rozpocznie się od piętra 1. Każde piętro może mieć inną liczbę gniazdek.";
+  }
+
   function openSettingsDialog() {
     els.projectName.value = state.settings.project;
     els.testerName.value = state.settings.tester;
+    configDraft = sanitizeConfig(state.config);
+    els.numberingMode.value = configDraft.numbering;
+    els.startFloor.value = String(configDraft.startFloor);
+    renderFloorConfigRows();
     els.settingsDialog.showModal();
+  }
+
+  function applyConfiguration(nextConfig) {
+    const previousNumber = currentNumber();
+    const previousEnds = { ...state.floorEnds };
+    state.config = sanitizeConfig(nextConfig);
+    rebuildStructure(state.config);
+    state.currentIndex = numberIndex.get(previousNumber) ?? 0;
+    state.floorEnds = {};
+    ranges.forEach((range) => {
+      const previousEnd = previousEnds[range.id];
+      if (range.numbers.includes(previousEnd)) state.floorEnds[range.id] = previousEnd;
+    });
+    state.version = BACKUP_VERSION;
   }
 
   function closeDialog(id) {
@@ -436,17 +558,14 @@
     const now = new Date();
     const title = state.settings.project || "Kontrola okablowania strukturalnego";
     const rangesDescription = ranges.map((range) =>
-      `${range.floor}: ${String(range.start).padStart(4, "0")}–${String(getRangeEnd(range)).padStart(4, "0")}`
+      `${range.floor}: ${range.start}–${getRangeEnd(range)}`
     ).join(" • ");
 
     const floorSections = ranges.map((range) => {
       const rangeEnd = getRangeEnd(range);
-      const floorNumbers = reportNumbers.filter((number) => {
-        const numeric = Number(number);
-        return numeric >= range.start && numeric <= rangeEnd;
-      });
+      const floorNumbers = getRangeNumbers(range);
       const floorCounts = getCounts(floorNumbers);
-      const manuallyEnded = state.floorEnds[String(range.start)] !== undefined;
+      const manuallyEnded = state.floorEnds[range.id] !== undefined;
       const rows = floorNumbers.map((number, index) => {
         const record = state.records[number];
         const status = record?.status || "pending";
@@ -463,7 +582,7 @@
       return `<section class="floor-report">
         <div class="floor-head">
           <div><span>RAPORT PIĘTRA</span><h2>${escapeHtml(range.floor)}</h2></div>
-          <div class="floor-range">${String(range.start).padStart(4, "0")}–${String(rangeEnd).padStart(4, "0")}<small>${manuallyEnded ? `Ostatni numer: ${String(rangeEnd).padStart(4, "0")}` : "Pełny zakres"}</small></div>
+          <div class="floor-range">${escapeHtml(range.start)}–${escapeHtml(rangeEnd)}<small>${manuallyEnded ? `Ostatni numer: ${escapeHtml(rangeEnd)}` : "Pełny zakres"}</small></div>
         </div>
         <div class="floor-summary">
           <span>Punktów <strong>${floorNumbers.length}</strong></span>
@@ -554,8 +673,8 @@
       return [
         index + 1,
         range.floor,
-        `="${number}"`,
-        `${String(range.start).padStart(4, "0")}–${String(getRangeEnd(range)).padStart(4, "0")}`,
+        state.config.numbering === "numeric" ? `="${number}"` : number,
+        `${range.start}–${getRangeEnd(range)}`,
         STATUS_LABELS[status],
         record?.note || "",
         date ? date.toLocaleDateString("pl-PL") : "",
@@ -574,7 +693,7 @@
       application: "Tester okablowania",
       version: BACKUP_VERSION,
       exportedAt: new Date().toISOString(),
-      ranges,
+      ranges: ranges.map((range) => ({ floor: range.floor, start: range.start, end: range.end, count: range.count })),
       state
     };
     downloadBlob(JSON.stringify(backup, null, 2), "application/json", `${fileBaseName()}_kopia_${dateStamp()}.json`);
@@ -587,21 +706,29 @@
       const restored = parsed?.state;
       if (!restored || typeof restored.records !== "object") throw new Error("invalid");
       const candidate = defaultState();
+      candidate.config = sanitizeConfig(restored.config);
+      const candidateRanges = buildStructure(candidate.config);
+      const candidateNumbers = candidateRanges.flatMap((range) => range.numbers);
       candidate.currentIndex = Number.isInteger(restored.currentIndex)
-        ? Math.min(Math.max(restored.currentIndex, 0), numbers.length - 1)
+        ? Math.min(Math.max(restored.currentIndex, 0), candidateNumbers.length - 1)
         : 0;
       candidate.settings.project = String(restored.settings?.project || "").slice(0, 100);
       candidate.settings.tester = String(restored.settings?.tester || "").slice(0, 80);
-      Object.entries(restored.floorEnds || {}).forEach(([rangeStart, rangeEnd]) => {
-        const range = ranges.find((item) => String(item.start) === String(rangeStart));
-        const numericEnd = Number(rangeEnd);
-        if (range && Number.isInteger(numericEnd) && numericEnd >= range.start && numericEnd <= range.end) {
-          candidate.floorEnds[String(range.start)] = numericEnd;
-        }
+      candidateRanges.forEach((range) => {
+        const legacyKey = candidate.config.numbering === "numeric" ? String(Number(range.start)) : null;
+        const rawEnd = restored.floorEnds?.[range.id] ?? (legacyKey ? restored.floorEnds?.[legacyKey] : undefined);
+        const directEnd = String(rawEnd ?? "");
+        const migratedEnd = range.numbers.includes(directEnd)
+          ? directEnd
+          : candidate.config.numbering === "numeric"
+            ? range.numbers.find((number) => Number(number) === Number(rawEnd))
+            : undefined;
+        if (migratedEnd) candidate.floorEnds[range.id] = migratedEnd;
       });
       Object.entries(restored.records).forEach(([number, record]) => {
-        if (!numberIndex.has(number) || !["ok", "error", "unmade"].includes(record?.status)) return;
-        candidate.records[number] = {
+        const safeNumber = String(number).trim().slice(0, 40);
+        if (!safeNumber || !["ok", "error", "unmade"].includes(record?.status)) return;
+        candidate.records[safeNumber] = {
           status: record.status,
           note: String(record.note || "").slice(0, 300),
           testedAt: isValidDate(record.testedAt) ? record.testedAt : new Date().toISOString()
@@ -609,6 +736,7 @@
       });
       if (!window.confirm(`Wczytać kopię zawierającą ${Object.keys(candidate.records).length} wyników? Obecne dane zostaną zastąpione.`)) return;
       state = candidate;
+      rebuildStructure(state.config);
       saveState();
       render();
       showToast("Kopia danych została wczytana.");
@@ -620,9 +748,9 @@
   }
 
   function resetMeasurement() {
-    const counts = getCounts();
-    if ((counts.checked > 0 || Object.keys(state.floorEnds).length > 0)
-      && !window.confirm(`Usunąć wszystkie ${counts.checked} zapisane wyniki oraz oznaczenia końców pięter i rozpocząć nowy pomiar? Tej operacji nie można cofnąć.`)) return;
+    const savedResults = Object.keys(state.records).length;
+    if ((savedResults > 0 || Object.keys(state.floorEnds).length > 0)
+      && !window.confirm(`Usunąć wszystkie ${savedResults} zapisane wyniki oraz oznaczenia końców pięter i rozpocząć nowy pomiar? Tej operacji nie można cofnąć.`)) return;
     state.records = {};
     state.floorEnds = {};
     state.currentIndex = 0;
@@ -746,24 +874,69 @@
     els.jumpInput.select();
   });
 
-  $$("[data-jump]").forEach((button) => {
-    button.addEventListener("click", () => {
-      els.jumpInput.value = button.dataset.jump;
-      els.jumpError.hidden = true;
-    });
+  els.rangeShortcuts.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-jump]");
+    if (!button) return;
+    els.jumpInput.value = button.dataset.jump;
+    els.jumpError.hidden = true;
   });
 
   els.jumpInput.addEventListener("input", () => {
-    els.jumpInput.value = els.jumpInput.value.replace(/\D/g, "").slice(0, 4);
+    if (state.config.numbering === "numeric") {
+      els.jumpInput.value = els.jumpInput.value.replace(/\D/g, "").slice(0, 4);
+    }
     els.jumpError.hidden = true;
+  });
+
+  els.numberingMode.addEventListener("change", () => {
+    if (!configDraft) return;
+    configDraft.numbering = els.numberingMode.value;
+    renderFloorConfigRows();
+  });
+
+  els.startFloor.addEventListener("change", () => {
+    if (!configDraft) return;
+    configDraft.startFloor = Number(els.startFloor.value) === 1 ? 1 : 0;
+    configDraft.floors = configDraft.floors.slice(0, 10 - configDraft.startFloor);
+    renderFloorConfigRows();
+  });
+
+  els.floorCount.addEventListener("input", () => {
+    if (!configDraft || !els.floorCount.value) return;
+    const requested = Math.min(10 - configDraft.startFloor, Math.max(1, Number.parseInt(els.floorCount.value, 10) || 1));
+    while (configDraft.floors.length < requested) configDraft.floors.push({ count: 100 });
+    configDraft.floors = configDraft.floors.slice(0, requested);
+    renderFloorConfigRows();
+  });
+
+  els.floorConfigRows.addEventListener("change", (event) => {
+    const input = event.target.closest("input[data-floor-index]");
+    if (!input || !configDraft) return;
+    const index = Number(input.dataset.floorIndex);
+    configDraft.floors[index].count = Math.min(999, Math.max(1, Number.parseInt(input.value, 10) || 1));
+    renderFloorConfigRows();
   });
 
   $("#settingsForm").addEventListener("submit", (event) => {
     event.preventDefault();
+    if (!configDraft) return;
+    els.floorConfigRows.querySelectorAll("input[data-floor-index]").forEach((input) => {
+      const index = Number(input.dataset.floorIndex);
+      if (configDraft.floors[index]) configDraft.floors[index].count = Number.parseInt(input.value, 10) || 1;
+    });
+    const nextConfig = sanitizeConfig(configDraft);
+    const nextNumbers = new Set(buildStructure(nextConfig).flatMap((range) => range.numbers));
+    const affectedRecords = numbers.filter((number) => state.records[number] && !nextNumbers.has(number)).length;
+    if (affectedRecords > 0 && !window.confirm(
+      `Nowa konfiguracja ukryje ${affectedRecords} ${pluralize(affectedRecords, "zapisany wynik", "zapisane wyniki", "zapisanych wyników")}. `
+      + "Wyniki nie zostaną usunięte i pojawią się ponownie po przywróceniu wcześniejszej numeracji. Zapisać konfigurację?"
+    )) return;
     state.settings.project = els.projectName.value.trim();
     state.settings.tester = els.testerName.value.trim();
+    applyConfiguration(nextConfig);
     saveState();
     closeDialog("settingsDialog");
+    render();
     showToast("Ustawienia pomiaru zapisane.");
   });
 
