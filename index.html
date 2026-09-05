@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#10243f" />
+    <meta name="description" content="Mobilny tester połączeń patchpanel–gniazdo z raportem PDF i Excel." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Tester kabli" />
+    <title>Tester okablowania</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icon-192.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">PATCHPANEL ↔ GNIAZDO</p>
+          <h1>Tester okablowania</h1>
+        </div>
+        <button class="icon-button" id="settingsButton" type="button" aria-label="Ustawienia pomiaru" title="Ustawienia pomiaru">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.37a1.7 1.7 0 0 0-1 .63 1.7 1.7 0 0 0-.37 1.08V21h-4v-.08A1.7 1.7 0 0 0 8.58 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.2 15a1.7 1.7 0 0 0-.63-1A1.7 1.7 0 0 0 2.5 13.6H2v-4h.5A1.7 1.7 0 0 0 4.2 8a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8.58 3.6a1.7 1.7 0 0 0 1-.63A1.7 1.7 0 0 0 9.96 2h4a1.7 1.7 0 0 0 1.55 1.58 1.7 1.7 0 0 0 1.4-.37l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 8a1.7 1.7 0 0 0 .63 1 1.7 1.7 0 0 0 1.08.37h.08v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></svg>
+        </button>
+      </header>
+
+      <main>
+        <section class="view active" id="testView" aria-labelledby="testTab">
+          <article class="progress-card">
+            <div class="progress-heading">
+              <div>
+                <span class="label">Postęp pomiaru</span>
+                <strong><span id="checkedCount">0</span> z <span id="totalCount">519</span></strong>
+              </div>
+              <span class="local-badge"><span aria-hidden="true"></span>Zapis lokalny</span>
+            </div>
+            <div class="progress-track" role="progressbar" aria-label="Postęp pomiaru" aria-valuemin="0" aria-valuemax="519" aria-valuenow="0">
+              <span id="progressBar"></span>
+            </div>
+            <div class="mini-summary" aria-label="Podsumowanie wyników">
+              <span class="mini-stat ok"><b id="okCount">0</b> OK</span>
+              <span class="mini-stat error"><b id="errorCount">0</b> błędów</span>
+              <span class="mini-stat unmade"><b id="unmadeCount">0</b> niezarobionych</span>
+            </div>
+          </article>
+
+          <article class="socket-card">
+            <div class="socket-card-top">
+              <button id="previousButton" class="step-button" type="button" aria-label="Poprzedni numer">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
+                <span>Poprzedni</span>
+              </button>
+              <span id="rangeLabel" class="range-label">Zakres 0001–0099</span>
+              <button id="smallNextButton" class="step-button" type="button" aria-label="Następny numer">
+                <span>Następny</span>
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </div>
+
+            <button id="numberButton" class="number-button" type="button" aria-label="Przejdź do innego numeru">
+              <span id="currentNumber">0001</span>
+              <small>dotknij, aby przejść do numeru</small>
+            </button>
+
+            <div id="currentStatus" class="current-status pending" aria-live="polite">
+              <span class="status-dot"></span>
+              <span>Nie sprawdzono</span>
+            </div>
+            <p id="currentNote" class="current-note" hidden></p>
+          </article>
+
+          <div class="action-grid" aria-label="Zapis wyniku">
+            <button id="okButton" class="action-button action-ok" type="button">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>
+              <span>OK</span>
+            </button>
+            <button id="errorButton" class="action-button action-error" type="button">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 8v5M12 17h.01"/><path d="M10.3 3.6 2.5 17a2 2 0 0 0 1.73 3h15.54a2 2 0 0 0 1.73-3L13.7 3.6a2 2 0 0 0-3.4 0Z"/></svg>
+              <span>Błąd</span>
+            </button>
+            <button id="unmadeButton" class="action-button action-unmade" type="button">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h10v8H4zM14 10h3M14 14h3M7 11v2M10 11v2"/><path d="m19 9 3 3-3 3"/></svg>
+              <span>Gniazdko<br />niezarobione</span>
+            </button>
+            <button id="nextButton" class="action-button action-next" type="button">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              <span>Następny</span>
+              <small>bez wyniku</small>
+            </button>
+          </div>
+
+          <button id="floorEndButton" class="floor-end-button" type="button" aria-pressed="false">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 21V4M5 5h11l-2 4 2 4H5"/></svg>
+            <span>
+              <strong>Ostatnie na piętrze</strong>
+              <small id="floorEndHelp">Zakończ raport tego piętra na bieżącym numerze</small>
+            </span>
+            <span class="toggle-mark" aria-hidden="true"><i></i></span>
+          </button>
+
+          <p class="flow-hint">Jeśli to ostatnie gniazdko na piętrze, włącz opcję przed zapisaniem wyniku. OK i „niezarobione” od razu przechodzą dalej.</p>
+        </section>
+
+        <section class="view" id="resultsView" aria-labelledby="resultsTab" hidden>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow dark">KONTROLA WPISÓW</p>
+              <h2>Wyniki</h2>
+            </div>
+            <span id="resultsAmount" class="results-amount">519 pozycji</span>
+          </div>
+
+          <label class="search-field">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <span class="sr-only">Szukaj numeru lub opisu błędu</span>
+            <input id="resultsSearch" type="search" inputmode="numeric" placeholder="Szukaj numeru lub opisu…" autocomplete="off" />
+          </label>
+
+          <div class="filter-row" id="filterRow" aria-label="Filtr wyników">
+            <button type="button" data-filter="all" aria-pressed="true">Wszystkie</button>
+            <button type="button" data-filter="issues" aria-pressed="false">Problemy</button>
+            <button type="button" data-filter="ok" aria-pressed="false">OK</button>
+            <button type="button" data-filter="pending" aria-pressed="false">Niesprawdzone</button>
+          </div>
+
+          <div class="results-list" id="resultsList"></div>
+        </section>
+
+        <section class="view" id="reportView" aria-labelledby="reportTab" hidden>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow dark">PODSUMOWANIE</p>
+              <h2>Raport</h2>
+            </div>
+          </div>
+
+          <article class="report-card">
+            <div class="report-grid">
+              <div><span>Sprawdzone</span><strong id="reportChecked">0</strong></div>
+              <div class="ok"><span>OK</span><strong id="reportOk">0</strong></div>
+              <div class="error"><span>Błędy</span><strong id="reportErrors">0</strong></div>
+              <div class="unmade"><span>Niezarobione</span><strong id="reportUnmade">0</strong></div>
+            </div>
+            <p id="reportPending" class="pending-callout">Do sprawdzenia pozostało 519 gniazdek.</p>
+            <div id="reportRanges" class="report-ranges" aria-label="Zakresy raportu według pięter"></div>
+          </article>
+
+          <article class="export-card">
+            <h3>Utwórz raport</h3>
+            <p>Raport jest podzielony na piętra i kończy się na numerze oznaczonym jako ostatni. Zawiera wynik, opis błędu oraz datę i godzinę testu.</p>
+            <div class="export-actions">
+              <button id="printButton" class="export-button primary" type="button">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg>
+                <span>Podgląd / PDF</span>
+              </button>
+              <button id="csvButton" class="export-button" type="button">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8M8 9h2"/></svg>
+                <span>Excel / CSV</span>
+              </button>
+            </div>
+          </article>
+
+          <article class="backup-card">
+            <div>
+              <h3>Kopia danych</h3>
+              <p>Wyniki są zapisane tylko na tym telefonie. Pobierz kopię po zakończeniu pracy.</p>
+            </div>
+            <div class="backup-actions">
+              <button id="backupButton" type="button">Pobierz kopię</button>
+              <label class="file-button">Wczytaj kopię<input id="restoreInput" type="file" accept="application/json,.json" /></label>
+              <button id="installButton" type="button">Dodaj do ekranu</button>
+            </div>
+          </article>
+
+          <button id="resetButton" class="reset-button" type="button">Rozpocznij nowy pomiar</button>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Główna nawigacja">
+        <button id="testTab" type="button" data-view="test" aria-current="page">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h10v8H4zM14 10h3M14 14h3M7 11v2M10 11v2"/><path d="m18 18 4-4"/></svg>
+          <span>Test</span>
+        </button>
+        <button id="resultsTab" type="button" data-view="results">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span>Wyniki</span>
+        </button>
+        <button id="reportTab" type="button" data-view="report">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19V2"/><path d="M2 19h22"/></svg>
+          <span>Raport</span>
+        </button>
+      </nav>
+    </div>
+
+    <dialog id="errorDialog" class="app-dialog">
+      <form id="errorForm">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow dark">ZAPIS WYNIKU</p>
+            <h2>Błąd — <span id="errorNumber">0001</span></h2>
+          </div>
+          <button class="dialog-close" type="button" data-close-dialog="errorDialog" aria-label="Zamknij">×</button>
+        </div>
+        <p class="dialog-prompt">Wybierz rodzaj błędu</p>
+        <div class="error-choice-list" aria-label="Rodzaj błędu">
+          <button type="button" data-error-choice="Uszkodzony kabel">Uszkodzony kabel</button>
+          <button type="button" data-error-choice="Błędnie zakończone gniazdko">Błędnie zakończone gniazdko</button>
+          <button type="button" data-error-choice="Błędnie zakończony keystone">Błędnie zakończony keystone</button>
+          <button type="button" data-error-choice="custom" aria-expanded="false">Inny</button>
+        </div>
+        <div id="customErrorPanel" class="custom-error-panel" hidden>
+          <label class="field-label" for="errorDescription">Opis innego błędu</label>
+          <textarea id="errorDescription" rows="4" maxlength="300" placeholder="Wpisz, co jest nieprawidłowe…"></textarea>
+          <button class="custom-error-save" type="submit">Zapisz inny błąd</button>
+        </div>
+        <button class="error-exit-button" type="button" data-close-dialog="errorDialog">Wyjdź</button>
+      </form>
+    </dialog>
+
+    <dialog id="jumpDialog" class="app-dialog small-dialog">
+      <form id="jumpForm">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow dark">NAWIGACJA</p>
+            <h2>Przejdź do numeru</h2>
+          </div>
+          <button class="dialog-close" type="button" data-close-dialog="jumpDialog" aria-label="Zamknij">×</button>
+        </div>
+        <label class="field-label" for="jumpInput">Numer gniazdka</label>
+        <input id="jumpInput" class="number-input" type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="np. 2037" required />
+        <p id="jumpError" class="field-error" role="alert" hidden>Ten numer nie występuje na liście.</p>
+        <div class="range-shortcuts" aria-label="Początek zakresu">
+          <button type="button" data-jump="0001">0001</button>
+          <button type="button" data-jump="1001">1001</button>
+          <button type="button" data-jump="2001">2001</button>
+          <button type="button" data-jump="3001">3001</button>
+        </div>
+        <div class="dialog-actions">
+          <button class="secondary" type="button" data-close-dialog="jumpDialog">Anuluj</button>
+          <button class="primary" type="submit">Przejdź</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="settingsDialog" class="app-dialog">
+      <form id="settingsForm">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow dark">DANE RAPORTU</p>
+            <h2>Ustawienia pomiaru</h2>
+          </div>
+          <button class="dialog-close" type="button" data-close-dialog="settingsDialog" aria-label="Zamknij">×</button>
+        </div>
+        <label class="field-label" for="projectName">Obiekt / inwestycja</label>
+        <input id="projectName" type="text" maxlength="100" placeholder="np. Biurowiec — Gdańsk" />
+        <label class="field-label" for="testerName">Osoba testująca</label>
+        <input id="testerName" type="text" maxlength="80" placeholder="Imię i nazwisko" />
+        <div class="dialog-actions">
+          <button class="primary wide" type="submit">Zapisz ustawienia</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="installDialog" class="app-dialog small-dialog">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow dark">SZYBKI DOSTĘP</p>
+          <h2>Dodaj aplikację do telefonu</h2>
+        </div>
+        <button class="dialog-close" type="button" data-close-dialog="installDialog" aria-label="Zamknij">×</button>
+      </div>
+      <div class="install-steps">
+        <p><strong>iPhone:</strong> otwórz menu udostępniania w Safari i wybierz „Do ekranu początkowego”.</p>
+        <p><strong>Android:</strong> otwórz menu Chrome i wybierz „Dodaj do ekranu głównego”.</p>
+      </div>
+      <button class="dialog-full-button" type="button" data-close-dialog="installDialog">Rozumiem</button>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+    <script src="./app.js" defer></script>
+  </body>
+</html>

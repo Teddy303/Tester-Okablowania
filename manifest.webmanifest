@@ -1,0 +1,16 @@
+{
+  "name": "Tester okablowania",
+  "short_name": "Tester kabli",
+  "description": "Kontrola połączeń patchpanel–gniazdo i raportowanie wyników.",
+  "lang": "pl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#edf2f7",
+  "theme_color": "#10243f",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
