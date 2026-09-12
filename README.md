@@ -28,6 +28,10 @@ W zakładce **Test** wybierz **Tylko błędy** lub **Tylko niezarobione**. Te sa
 - Tryb testowania i bieżący numer są zapamiętywane na tym urządzeniu. Filtr nie zmienia zakresu raportu PDF/CSV ani kopii JSON.
 - W trybie napraw ukryte jest **Ostatnie na piętrze**, aby nie pomylić końca listy napraw z końcem fizycznego piętra.
 
+## Raport błędnych zakończeń
+
+W zakładce **Raport** osobna sekcja **Raport błędnych zakończeń** udostępnia podgląd/druk do PDF oraz eksport Excel/CSV. Obejmuje tylko punkty ze statusem **Błąd** i wybraną kategorią **Błędnie zakończone gniazdko** lub **Błędnie zakończony keystone**. Zawiera numer, piętro, opis i datę testu; respektuje oznaczenia ostatniego gniazdka na piętrze. Nie zależy od wybranego trybu testowania. Zapisanie OK usuwa punkt z kolejnego eksportu. Pełny raport i zapisane wyniki pozostają dostępne.
+
 ## Dodawanie gniazdek
 
 W ustawieniach zwiększ liczbę gniazdek na wybranym piętrze, pozostawiając dotychczasowy sposób numeracji. Nowe numery pojawią się jako **Nie sprawdzono**, bez utraty wcześniejszych wyników. Jeśli raport ogranicza oznaczenie **Ostatnie na piętrze**, cofnij je w trybie **Wszystkie**. Nowe niesprawdzone numery nie pojawiają się w grupie błędów ani niezarobionych.

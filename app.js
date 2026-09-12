@@ -231,6 +231,17 @@
     return ranges.flatMap((range) => getRangeNumbers(range));
   }
 
+  function getExportNumbers(scope = "all") {
+    const reportNumbers = getReportNumbers();
+    if (scope !== "terminations") return reportNumbers;
+    return reportNumbers.filter((number) => {
+      const record = state.records[number];
+      return record?.status === "error" && [
+        "Błędnie zakończone gniazdko", "Błędnie zakończony keystone"
+      ].includes(record.note);
+    });
+  }
+
   function normalizeTestFilter(value) {
     return ["error", "unmade"].includes(value) ? value : "all";
   }
@@ -547,6 +558,7 @@
 
   function renderReport() {
     const counts = getCounts();
+    $("#terminationReportCount").textContent = `Punktów z błędnym zakończeniem: ${getExportNumbers("terminations").length}`;
     $("#retestErrorsButton").textContent = `Sprawdź błędy (${counts.error})`;
     $("#retestErrorsButton").disabled = counts.error === 0;
     $("#retestUnmadeButton").textContent = `Sprawdź niezarobione (${counts.unmade})`;
@@ -645,8 +657,11 @@
     if (dialog?.open) dialog.close();
   }
 
-  function buildReportHtml() {
-    const reportNumbers = getReportNumbers();
+  function buildReportHtml(scope = "all") {
+    const terminationsOnly = scope === "terminations";
+    const reportNumbers = getExportNumbers(scope);
+    const includedNumbers = new Set(reportNumbers);
+    const reportTitle = terminationsOnly ? "Raport błędnych zakończeń" : "Raport kontroli okablowania";
     const counts = getCounts(reportNumbers);
     const now = new Date();
     const title = state.settings.project || "Kontrola okablowania strukturalnego";
@@ -656,7 +671,8 @@
 
     const floorSections = ranges.map((range) => {
       const rangeEnd = getRangeEnd(range);
-      const floorNumbers = getRangeNumbers(range);
+      const floorNumbers = getRangeNumbers(range).filter((number) => includedNumbers.has(number));
+      if (terminationsOnly && !floorNumbers.length) return "";
       const floorCounts = getCounts(floorNumbers);
       const manuallyEnded = state.floorEnds[range.id] !== undefined;
       const rows = floorNumbers.map((number, index) => {
@@ -690,7 +706,7 @@
       </section>`;
     }).join("");
 
-    return `<!doctype html><html lang="pl"><head><meta charset="utf-8"><title>Raport — ${escapeHtml(title)}</title>
+    return `<!doctype html><html lang="pl"><head><meta charset="utf-8"><title>${reportTitle} — ${escapeHtml(title)}</title>
       <style>
         @page { size: A4 portrait; margin: 12mm; }
         * { box-sizing: border-box; }
@@ -726,8 +742,9 @@
         @media print { .no-print { display: none !important; } }
       </style></head><body>
       <header>
-        <h1>Raport kontroli okablowania</h1>
+        <h1>${reportTitle}</h1>
         <div><strong>${escapeHtml(title)}</strong></div>
+        ${terminationsOnly ? "<p>Wyłącznie aktualne błędy: błędnie zakończone gniazdko lub błędnie zakończony keystone. Raport nie obejmuje uszkodzonych kabli, innych błędów ani gniazdek niezarobionych.</p>" : ""}
         <div class="meta"><span>Osoba testująca: <strong>${escapeHtml(state.settings.tester || "—")}</strong></span><span>Wygenerowano: <strong>${escapeHtml(formatDateTime(now.toISOString()))}</strong></span><span>Zakresy raportu: ${escapeHtml(rangesDescription)}</span><span>Łącznie: ${reportNumbers.length} punktów</span></div>
       </header>
       <section class="summary">
@@ -737,18 +754,18 @@
         <div><span>Niezarobione</span><strong>${counts.unmade}</strong></div>
         <div><span>Niesprawdzone</span><strong>${counts.pending}</strong></div>
       </section>
-      ${floorSections}
+      ${terminationsOnly && !reportNumbers.length ? "<p>Brak zapisanych błędnych zakończeń w zakresie raportu.</p>" : floorSections}
       </body></html>`;
   }
 
-  function openPrintReport() {
+  function openPrintReport(scope = "all") {
     const reportWindow = window.open("", "_blank");
     if (!reportWindow) {
       showToast("Przeglądarka zablokowała raport. Zezwól na otwieranie nowych kart.");
       return;
     }
     reportWindow.document.open();
-    reportWindow.document.write(buildReportHtml());
+    reportWindow.document.write(buildReportHtml(scope));
     reportWindow.document.close();
     window.setTimeout(() => {
       reportWindow.focus();
@@ -756,9 +773,9 @@
     }, 450);
   }
 
-  function exportCsv() {
+  function exportCsv(scope = "all") {
     const header = ["Lp.", "Piętro", "Numer", "Zakres raportu", "Wynik", "Opis błędu", "Data", "Godzina", "Obiekt", "Osoba testująca"];
-    const rows = getReportNumbers().map((number, index) => {
+    const rows = getExportNumbers(scope).map((number, index) => {
       const record = state.records[number];
       const status = record?.status || "pending";
       const date = record?.testedAt ? new Date(record.testedAt) : null;
@@ -777,7 +794,8 @@
       ];
     });
     const csv = "\ufeffsep=;\r\n" + [header, ...rows].map((row) => row.map(csvCell).join(";")).join("\r\n");
-    downloadBlob(csv, "text/csv;charset=utf-8", `${fileBaseName()}_${dateStamp()}.csv`);
+    const suffix = scope === "terminations" ? "_bledne_zakonczenia" : "";
+    downloadBlob(csv, "text/csv;charset=utf-8", `${fileBaseName()}${suffix}_${dateStamp()}.csv`);
     showToast("Raport Excel / CSV został przygotowany.");
   }
 
@@ -1065,8 +1083,10 @@
     if (row) goToNumber(row.dataset.number, true);
   });
 
-  $("#printButton").addEventListener("click", openPrintReport);
-  $("#csvButton").addEventListener("click", exportCsv);
+  $("#printButton").addEventListener("click", () => openPrintReport());
+  $("#csvButton").addEventListener("click", () => exportCsv());
+  $("#terminationPrintButton").addEventListener("click", () => openPrintReport("terminations"));
+  $("#terminationCsvButton").addEventListener("click", () => exportCsv("terminations"));
   $("#backupButton").addEventListener("click", exportBackup);
   els.restoreInput.addEventListener("change", () => {
     const [file] = els.restoreInput.files;
