@@ -46,6 +46,24 @@
             </div>
           </article>
 
+          <div class="test-scope-card">
+            <label for="testScope">Które gniazdka testujesz?</label>
+            <select id="testScope" aria-describedby="testScopeHelp">
+              <option value="all">Wszystkie</option>
+              <option value="error">Tylko błędy</option>
+              <option value="unmade">Tylko niezarobione</option>
+            </select>
+            <p id="testScopeCount" role="status" aria-live="polite"></p>
+            <p id="testScopeHelp">Wybór ogranicza testowanie. Raport zawsze obejmuje wszystkie gniazdka.</p>
+          </div>
+
+          <article id="emptyTestScope" class="empty-test-scope" hidden>
+            <h2 id="emptyTestScopeTitle">Brak gniazdek w tej grupie</h2>
+            <p>Możesz wybrać inną grupę lub otworzyć Raport. Dotychczasowe wyniki pozostają zapisane.</p>
+            <button id="showAllTestsButton" type="button">Pokaż wszystkie gniazdka</button>
+          </article>
+
+          <div id="testWorkspace">
           <article class="socket-card">
             <div class="socket-card-top">
               <button id="previousButton" class="step-button" type="button" aria-label="Poprzedni numer">
@@ -104,7 +122,8 @@
             <span class="toggle-mark" aria-hidden="true"><i></i></span>
           </button>
 
-          <p class="flow-hint">Jeśli to ostatnie gniazdko na piętrze, włącz opcję przed zapisaniem wyniku. OK i „niezarobione” od razu przechodzą dalej.</p>
+          <p id="testFlowHint" class="flow-hint">Jeśli to ostatnie gniazdko na piętrze, włącz opcję przed zapisaniem wyniku. OK i „niezarobione” od razu przechodzą dalej.</p>
+          </div>
         </section>
 
         <section class="view" id="resultsView" aria-labelledby="resultsTab" hidden>
@@ -149,6 +168,10 @@
             </div>
             <p id="reportPending" class="pending-callout">Do sprawdzenia pozostało 519 gniazdek.</p>
             <div id="reportRanges" class="report-ranges" aria-label="Zakresy raportu według pięter"></div>
+            <div class="retest-actions" aria-label="Ponowne testowanie">
+              <button id="retestErrorsButton" type="button">Sprawdź błędy</button>
+              <button id="retestUnmadeButton" type="button">Sprawdź niezarobione</button>
+            </div>
           </article>
 
           <article class="export-card">

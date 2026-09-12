@@ -83,6 +83,7 @@
   const defaultState = () => ({
     version: BACKUP_VERSION,
     currentIndex: 0,
+    testFilter: "all",
     records: {},
     floorEnds: {},
     config: cloneDefaultConfig(),
@@ -112,6 +113,12 @@
     rangeLabel: $("#rangeLabel"),
     currentStatus: $("#currentStatus"),
     currentNote: $("#currentNote"),
+    testScope: $("#testScope"),
+    testScopeCount: $("#testScopeCount"),
+    testWorkspace: $("#testWorkspace"),
+    emptyTestScope: $("#emptyTestScope"),
+    emptyTestScopeTitle: $("#emptyTestScopeTitle"),
+    testFlowHint: $("#testFlowHint"),
     deleteRecordButton: $("#deleteRecordButton"),
     floorEndButton: $("#floorEndButton"),
     floorEndHelp: $("#floorEndHelp"),
@@ -153,6 +160,7 @@
       }
       const clean = defaultState();
       clean.config = sanitizeConfig(saved.config);
+      clean.testFilter = normalizeTestFilter(saved.testFilter);
       rebuildStructure(clean.config);
       clean.currentIndex = Number.isInteger(saved.currentIndex)
         ? Math.min(Math.max(saved.currentIndex, 0), numbers.length - 1)
@@ -223,8 +231,41 @@
     return ranges.flatMap((range) => getRangeNumbers(range));
   }
 
+  function normalizeTestFilter(value) {
+    return ["error", "unmade"].includes(value) ? value : "all";
+  }
+
+  // The report scope never changes with the test filter.
+  function getTestNumbers() {
+    return getReportNumbers().filter((number) =>
+      state.testFilter === "all" || state.records[number]?.status === state.testFilter
+    );
+  }
+
+  function canTestCurrent() {
+    return getTestNumbers().includes(currentNumber());
+  }
+
+  function setTestFilter(value) {
+    state.testFilter = normalizeTestFilter(value);
+    const candidates = getTestNumbers();
+    if (state.testFilter !== "all" && candidates.length) {
+      state.currentIndex = numberIndex.get(candidates[0]);
+    }
+    saveState();
+    setView("test");
+  }
+
   function ensureCurrentIsIncluded() {
     const number = currentNumber();
+    if (state.testFilter !== "all") {
+      const candidates = getTestNumbers();
+      if (!candidates.length || candidates.includes(number)) return;
+      const next = candidates.find((item) => numberIndex.get(item) > state.currentIndex) || candidates[0];
+      state.currentIndex = numberIndex.get(next);
+      saveState();
+      return;
+    }
     const range = getRange(number);
     if (!range || getRangeNumbers(range).includes(number)) return;
     state.currentIndex = numberIndex.get(getRangeEnd(range));
@@ -245,7 +286,8 @@
   function render() {
     ensureCurrentIsIncluded();
     renderProgress();
-    renderCurrent();
+    renderTestScope();
+    if (canTestCurrent()) renderCurrent();
     if (activeView === "results") renderResults();
     if (activeView === "report") renderReport();
   }
@@ -264,6 +306,30 @@
     els.progressTrack.setAttribute("aria-valuenow", String(counts.checked));
   }
 
+  function renderTestScope() {
+    const candidates = getTestNumbers();
+    const hasCurrent = candidates.includes(currentNumber());
+    const filtered = state.testFilter !== "all";
+    els.testScope.value = state.testFilter;
+    els.testScopeCount.textContent = filtered
+      ? `W tej grupie: ${candidates.length} ${pluralize(candidates.length, "gniazdko", "gniazdka", "gniazdek")}`
+      : `Pełna lista: ${candidates.length} ${pluralize(candidates.length, "gniazdko", "gniazdka", "gniazdek")}`;
+    els.testWorkspace.hidden = !hasCurrent;
+    els.emptyTestScope.hidden = hasCurrent;
+    els.emptyTestScopeTitle.textContent = state.testFilter === "error"
+      ? "Brak gniazdek ze statusem Błąd"
+      : "Brak gniazdek niezarobionych";
+    els.actionButtons.forEach((button) => { button.disabled = actionLocked || !hasCurrent; });
+    $("#smallNextButton").disabled = actionLocked || !hasCurrent;
+    els.previousButton.disabled = actionLocked || candidates.indexOf(currentNumber()) <= 0;
+    els.deleteRecordButton.disabled = actionLocked || !hasCurrent;
+    // The last item in a repair list is not necessarily the last socket on a floor.
+    els.floorEndButton.hidden = filtered;
+    els.testFlowHint.textContent = filtered
+      ? "Zapis zastępuje poprzedni wynik w pełnym raporcie. Następny pomija gniazdko bez zmiany wyniku."
+      : "Jeśli to ostatnie gniazdko na piętrze, włącz opcję przed zapisaniem wyniku. OK i „niezarobione” od razu przechodzą dalej.";
+  }
+
   function renderCurrent() {
     const number = currentNumber();
     const range = getRange(number);
@@ -277,7 +343,6 @@
       : `${range.floor} • ${range.label}`;
     els.currentStatus.className = `current-status ${status}`;
     els.currentStatus.querySelector("span:last-child").textContent = STATUS_LABELS[status];
-    els.previousButton.disabled = getReportNumbers().indexOf(number) === 0;
     els.floorEndButton.setAttribute("aria-pressed", String(isConfiguredEnd));
     els.floorEndHelp.textContent = isConfiguredEnd
       ? `Raport dla: ${range.floor} kończy się na ${number} — dotknij, aby cofnąć`
@@ -294,7 +359,7 @@
   }
 
   function markCurrent(status, note = "") {
-    if (actionLocked) return;
+    if (actionLocked || !canTestCurrent()) return;
     actionLocked = true;
     const number = currentNumber();
     state.records[number] = {
@@ -305,14 +370,14 @@
     saveState();
     showToast(`${number} — ${STATUS_LABELS[status]}`);
     advance(true);
-    els.actionButtons.forEach((button) => { button.disabled = true; });
     window.setTimeout(() => {
       actionLocked = false;
-      els.actionButtons.forEach((button) => { button.disabled = false; });
+      renderTestScope();
     }, 330);
   }
 
   function deleteCurrentRecord() {
+    if (actionLocked || !canTestCurrent()) return;
     const number = currentNumber();
     if (!state.records[number]) return;
     if (!window.confirm(`Usunąć zapis dla gniazdka ${number}? Gniazdko wróci do stanu „Nie sprawdzono”.`)) return;
@@ -323,6 +388,20 @@
   }
 
   function advance(afterSave = false) {
+    if (actionLocked && !afterSave) return;
+    if (state.testFilter !== "all") {
+      const candidates = getTestNumbers();
+      // Use the full list index: the just-saved item may no longer match the filter.
+      const next = candidates.find((number) => numberIndex.get(number) > state.currentIndex);
+      if (next) state.currentIndex = numberIndex.get(next);
+      else if (candidates.length) {
+        state.currentIndex = numberIndex.get(candidates[0]);
+        if (!afterSave) showToast("Koniec wybranej listy — wrócono do jej początku.");
+      }
+      saveState();
+      render();
+      return;
+    }
     const reportNumbers = getReportNumbers();
     const activePosition = reportNumbers.indexOf(currentNumber());
     if (activePosition >= 0 && activePosition < reportNumbers.length - 1) {
@@ -341,7 +420,8 @@
   }
 
   function goPrevious() {
-    const reportNumbers = getReportNumbers();
+    if (actionLocked) return;
+    const reportNumbers = getTestNumbers();
     const activePosition = reportNumbers.indexOf(currentNumber());
     if (activePosition <= 0) return;
     state.currentIndex = numberIndex.get(reportNumbers[activePosition - 1]);
@@ -350,6 +430,7 @@
   }
 
   function toggleFloorEnd() {
+    if (actionLocked || state.testFilter !== "all" || !canTestCurrent()) return;
     const number = currentNumber();
     const range = getRange(number);
     const currentPosition = range.numbers.indexOf(number);
@@ -391,7 +472,7 @@
     showToast(`${range.floor} — raport kończy się na ${number}.`);
   }
 
-  function goToNumber(number) {
+  function goToNumber(number, fromResults = false) {
     const input = String(number).trim();
     const compact = input.toLocaleUpperCase("pl").replace(/\s+/g, "");
     const normalized = state.config.numbering === "numeric" && /^\d+$/.test(input)
@@ -401,6 +482,11 @@
     const index = numberIndex.get(normalized);
     if (index === undefined) return "missing";
     if (!getReportNumbers().includes(normalized)) return "excluded";
+    if (!getTestNumbers().includes(normalized)) {
+      if (!fromResults) return "filtered";
+      state.testFilter = "all";
+      showToast("Wybrane gniazdko jest poza grupą — włączono tryb Wszystkie.");
+    }
     state.currentIndex = index;
     saveState();
     setView("test");
@@ -461,6 +547,10 @@
 
   function renderReport() {
     const counts = getCounts();
+    $("#retestErrorsButton").textContent = `Sprawdź błędy (${counts.error})`;
+    $("#retestErrorsButton").disabled = counts.error === 0;
+    $("#retestUnmadeButton").textContent = `Sprawdź niezarobione (${counts.unmade})`;
+    $("#retestUnmadeButton").disabled = counts.unmade === 0;
     $("#reportChecked").textContent = counts.checked;
     $("#reportOk").textContent = counts.ok;
     $("#reportErrors").textContent = counts.error;
@@ -480,6 +570,7 @@
   }
 
   function openErrorDialog() {
+    if (actionLocked || !canTestCurrent()) return;
     const number = currentNumber();
     els.errorNumber.textContent = number;
     els.errorDescription.value = "";
@@ -494,9 +585,11 @@
     els.jumpInput.inputMode = state.config.numbering === "numeric" ? "numeric" : "text";
     els.jumpInput.maxLength = state.config.numbering === "numeric" ? 4 : 20;
     els.jumpInput.placeholder = state.config.numbering === "numeric" ? "np. 2037" : "np. P2 S37";
-    els.rangeShortcuts.innerHTML = ranges.map((range) =>
-      `<button type="button" data-jump="${escapeHtml(range.start)}">${escapeHtml(range.start)}</button>`
-    ).join("");
+    const candidates = new Set(getTestNumbers());
+    els.rangeShortcuts.innerHTML = ranges.map((range) => range.numbers.find((number) => candidates.has(number)))
+      .filter(Boolean).map((number) =>
+        `<button type="button" data-jump="${escapeHtml(number)}">${escapeHtml(number)}</button>`
+      ).join("");
     els.jumpError.hidden = true;
     els.jumpDialog.showModal();
     window.setTimeout(() => {
@@ -707,6 +800,7 @@
       if (!restored || typeof restored.records !== "object") throw new Error("invalid");
       const candidate = defaultState();
       candidate.config = sanitizeConfig(restored.config);
+      candidate.testFilter = normalizeTestFilter(restored.testFilter);
       const candidateRanges = buildStructure(candidate.config);
       const candidateNumbers = candidateRanges.flatMap((range) => range.numbers);
       candidate.currentIndex = Number.isInteger(restored.currentIndex)
@@ -754,6 +848,7 @@
     state.records = {};
     state.floorEnds = {};
     state.currentIndex = 0;
+    state.testFilter = "all";
     saveState();
     setView("test");
     showToast("Rozpoczęto nowy pomiar.");
@@ -829,6 +924,10 @@
   els.floorEndButton.addEventListener("click", toggleFloorEnd);
   $("#numberButton").addEventListener("click", openJumpDialog);
   $("#settingsButton").addEventListener("click", openSettingsDialog);
+  els.testScope.addEventListener("change", () => setTestFilter(els.testScope.value));
+  $("#showAllTestsButton").addEventListener("click", () => setTestFilter("all"));
+  $("#retestErrorsButton").addEventListener("click", () => setTestFilter("error"));
+  $("#retestUnmadeButton").addEventListener("click", () => setTestFilter("unmade"));
 
   $$(".bottom-nav button").forEach((button) => {
     button.addEventListener("click", () => setView(button.dataset.view));
@@ -868,7 +967,9 @@
     }
     els.jumpError.textContent = result === "excluded"
       ? "Ten numer znajduje się poza oznaczonym końcem piętra. Najpierw cofnij oznaczenie ostatniego numeru."
-      : "Ten numer nie występuje na liście.";
+      : result === "filtered"
+        ? "To gniazdko nie należy do wybranej grupy. Zmień tryb testowania na Wszystkie."
+        : "Ten numer nie występuje na liście.";
     els.jumpError.hidden = false;
     els.jumpInput.focus();
     els.jumpInput.select();
@@ -961,7 +1062,7 @@
   els.resultsSearch.addEventListener("input", renderResults);
   els.resultsList.addEventListener("click", (event) => {
     const row = event.target.closest("[data-number]");
-    if (row) goToNumber(row.dataset.number);
+    if (row) goToNumber(row.dataset.number, true);
   });
 
   $("#printButton").addEventListener("click", openPrintReport);

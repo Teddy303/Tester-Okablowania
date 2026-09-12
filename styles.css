@@ -173,6 +173,7 @@ body[data-numbering="floorSocket"] .number-button > span { font-size: clamp(2.75
 .floor-end-button[aria-pressed="true"] { border-color: var(--amber-500); color: #3c2906; background: var(--amber-100); }
 .floor-end-button[aria-pressed="true"] .toggle-mark { background: var(--amber-500); }
 .floor-end-button[aria-pressed="true"] .toggle-mark i { transform: translateX(19px); }
+.floor-end-button[hidden] { display: none; }
 
 .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-top: 13px; }
 .action-button { display: flex; min-height: 112px; padding: 14px 10px; border: 0; border-radius: 19px; align-items: center; justify-content: center; flex-direction: column; gap: 6px; box-shadow: 0 9px 22px rgba(15, 35, 60, .13); color: #fff; text-transform: uppercase; font-size: 1.18rem; font-weight: 900; line-height: 1.03; letter-spacing: .015em; }
@@ -185,6 +186,23 @@ body[data-numbering="floorSocket"] .number-button > span { font-size: clamp(2.75
 .action-unmade { color: #3c2906; background: linear-gradient(145deg, #ffc44f, #e39209); font-size: .92rem; }
 .action-next { background: linear-gradient(145deg, #277eec, #1452b9); }
 .flow-hint { margin: 12px 8px 0; color: var(--slate-500); text-align: center; font-size: .78rem; line-height: 1.45; }
+
+.test-scope-card { margin-top: 13px; padding: 14px; border: 1px solid var(--slate-200); border-radius: 16px; background: #fff; }
+.test-scope-card label { display: block; margin-bottom: 7px; color: var(--slate-700); font-size: .9rem; font-weight: 800; }
+.test-scope-card select { width: 100%; min-height: 48px; padding: 8px 12px; border: 1px solid var(--slate-300); border-radius: 11px; color: var(--navy-900); background: var(--slate-100); font: inherit; font-size: 1rem; font-weight: 800; }
+.test-scope-card select:focus-visible { outline: 3px solid var(--blue-600); outline-offset: 2px; }
+#testScopeCount { margin: 10px 0 0; color: var(--blue-600); font-size: 1rem; font-weight: 800; }
+#testScopeHelp { margin: 5px 0 0; color: var(--slate-500); font-size: .875rem; line-height: 1.4; }
+#testWorkspace[hidden], .empty-test-scope[hidden] { display: none; }
+.empty-test-scope { margin-top: 13px; padding: 22px 16px; border: 1px solid var(--slate-200); border-radius: 18px; background: #fff; text-align: center; }
+.empty-test-scope h2 { margin: 0; font-size: 1.25rem; }
+.empty-test-scope p { margin: 12px 0; color: var(--slate-700); font-size: 1rem; line-height: 1.5; }
+.empty-test-scope button, .retest-actions button { min-height: 48px; padding: 10px 12px; border: 1px solid var(--slate-300); border-radius: 12px; color: var(--blue-600); background: var(--blue-100); font: inherit; font-size: .9rem; font-weight: 800; }
+.retest-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.retest-actions button { flex: 1 1 180px; }
+#retestErrorsButton { color: var(--red-700); background: var(--red-100); }
+#retestUnmadeButton { color: var(--amber-700); background: var(--amber-100); }
+.retest-actions button:disabled { opacity: .5; cursor: default; }
 
 .section-heading { display: flex; min-height: 56px; margin: 2px 2px 14px; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .section-heading h2 { margin: 0; font-size: 1.75rem; letter-spacing: -.035em; }
