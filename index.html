@@ -190,12 +190,12 @@
           </article>
 
           <article class="export-card">
-            <h3>Raport błędnych zakończeń</h3>
-            <p>Tylko błędnie zakończone gniazdka i keystone’y, z podziałem na piętra, opisem błędu oraz datą i godziną testu. Po zapisaniu OK punkt znika z tego raportu.</p>
-            <p id="terminationReportCount" role="status">Punktów z błędnym zakończeniem: 0</p>
+            <h3>Raport wszystkich błędów</h3>
+            <p>Wszystkie punkty ze statusem Błąd: uszkodzone kable, błędnie zakończone gniazdka i keystone’y oraz inne błędy. Raport zawiera podział na piętra, opis błędu oraz datę i godzinę testu. Po zapisaniu OK punkt znika z tego raportu.</p>
+            <p id="errorReportCount" role="status">Punktów ze statusem Błąd: 0</p>
             <div class="export-actions">
-              <button id="terminationPrintButton" class="export-button primary" type="button">Podgląd / PDF</button>
-              <button id="terminationCsvButton" class="export-button" type="button">Excel / CSV</button>
+              <button id="errorPrintButton" class="export-button primary" type="button">Podgląd / PDF</button>
+              <button id="errorCsvButton" class="export-button" type="button">Excel / CSV</button>
             </div>
           </article>
 

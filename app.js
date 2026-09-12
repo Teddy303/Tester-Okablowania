@@ -233,13 +233,8 @@
 
   function getExportNumbers(scope = "all") {
     const reportNumbers = getReportNumbers();
-    if (scope !== "terminations") return reportNumbers;
-    return reportNumbers.filter((number) => {
-      const record = state.records[number];
-      return record?.status === "error" && [
-        "Błędnie zakończone gniazdko", "Błędnie zakończony keystone"
-      ].includes(record.note);
-    });
+    if (scope !== "errors") return reportNumbers;
+    return reportNumbers.filter((number) => state.records[number]?.status === "error");
   }
 
   function normalizeTestFilter(value) {
@@ -558,7 +553,7 @@
 
   function renderReport() {
     const counts = getCounts();
-    $("#terminationReportCount").textContent = `Punktów z błędnym zakończeniem: ${getExportNumbers("terminations").length}`;
+    $("#errorReportCount").textContent = `Punktów ze statusem Błąd: ${getExportNumbers("errors").length}`;
     $("#retestErrorsButton").textContent = `Sprawdź błędy (${counts.error})`;
     $("#retestErrorsButton").disabled = counts.error === 0;
     $("#retestUnmadeButton").textContent = `Sprawdź niezarobione (${counts.unmade})`;
@@ -658,10 +653,10 @@
   }
 
   function buildReportHtml(scope = "all") {
-    const terminationsOnly = scope === "terminations";
+    const errorsOnly = scope === "errors";
     const reportNumbers = getExportNumbers(scope);
     const includedNumbers = new Set(reportNumbers);
-    const reportTitle = terminationsOnly ? "Raport błędnych zakończeń" : "Raport kontroli okablowania";
+    const reportTitle = errorsOnly ? "Raport wszystkich błędów" : "Raport kontroli okablowania";
     const counts = getCounts(reportNumbers);
     const now = new Date();
     const title = state.settings.project || "Kontrola okablowania strukturalnego";
@@ -672,7 +667,7 @@
     const floorSections = ranges.map((range) => {
       const rangeEnd = getRangeEnd(range);
       const floorNumbers = getRangeNumbers(range).filter((number) => includedNumbers.has(number));
-      if (terminationsOnly && !floorNumbers.length) return "";
+      if (errorsOnly && !floorNumbers.length) return "";
       const floorCounts = getCounts(floorNumbers);
       const manuallyEnded = state.floorEnds[range.id] !== undefined;
       const rows = floorNumbers.map((number, index) => {
@@ -744,7 +739,7 @@
       <header>
         <h1>${reportTitle}</h1>
         <div><strong>${escapeHtml(title)}</strong></div>
-        ${terminationsOnly ? "<p>Wyłącznie aktualne błędy: błędnie zakończone gniazdko lub błędnie zakończony keystone. Raport nie obejmuje uszkodzonych kabli, innych błędów ani gniazdek niezarobionych.</p>" : ""}
+        ${errorsOnly ? "<p>Wszystkie punkty ze statusem Błąd: uszkodzone kable, błędnie zakończone gniazdka, błędnie zakończone keystone’y oraz inne opisane błędy.</p>" : ""}
         <div class="meta"><span>Osoba testująca: <strong>${escapeHtml(state.settings.tester || "—")}</strong></span><span>Wygenerowano: <strong>${escapeHtml(formatDateTime(now.toISOString()))}</strong></span><span>Zakresy raportu: ${escapeHtml(rangesDescription)}</span><span>Łącznie: ${reportNumbers.length} punktów</span></div>
       </header>
       <section class="summary">
@@ -754,7 +749,7 @@
         <div><span>Niezarobione</span><strong>${counts.unmade}</strong></div>
         <div><span>Niesprawdzone</span><strong>${counts.pending}</strong></div>
       </section>
-      ${terminationsOnly && !reportNumbers.length ? "<p>Brak zapisanych błędnych zakończeń w zakresie raportu.</p>" : floorSections}
+      ${errorsOnly && !reportNumbers.length ? "<p>Brak zapisanych błędów w zakresie raportu.</p>" : floorSections}
       </body></html>`;
   }
 
@@ -794,7 +789,7 @@
       ];
     });
     const csv = "\ufeffsep=;\r\n" + [header, ...rows].map((row) => row.map(csvCell).join(";")).join("\r\n");
-    const suffix = scope === "terminations" ? "_bledne_zakonczenia" : "";
+    const suffix = scope === "errors" ? "_wszystkie_bledy" : "";
     downloadBlob(csv, "text/csv;charset=utf-8", `${fileBaseName()}${suffix}_${dateStamp()}.csv`);
     showToast("Raport Excel / CSV został przygotowany.");
   }
@@ -1085,8 +1080,8 @@
 
   $("#printButton").addEventListener("click", () => openPrintReport());
   $("#csvButton").addEventListener("click", () => exportCsv());
-  $("#terminationPrintButton").addEventListener("click", () => openPrintReport("terminations"));
-  $("#terminationCsvButton").addEventListener("click", () => exportCsv("terminations"));
+  $("#errorPrintButton").addEventListener("click", () => openPrintReport("errors"));
+  $("#errorCsvButton").addEventListener("click", () => exportCsv("errors"));
   $("#backupButton").addEventListener("click", exportBackup);
   els.restoreInput.addEventListener("change", () => {
     const [file] = els.restoreInput.files;

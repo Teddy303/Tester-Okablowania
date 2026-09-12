@@ -28,9 +28,9 @@ W zakładce **Test** wybierz **Tylko błędy** lub **Tylko niezarobione**. Te sa
 - Tryb testowania i bieżący numer są zapamiętywane na tym urządzeniu. Filtr nie zmienia zakresu raportu PDF/CSV ani kopii JSON.
 - W trybie napraw ukryte jest **Ostatnie na piętrze**, aby nie pomylić końca listy napraw z końcem fizycznego piętra.
 
-## Raport błędnych zakończeń
+## Raport wszystkich błędów
 
-W zakładce **Raport** osobna sekcja **Raport błędnych zakończeń** udostępnia podgląd/druk do PDF oraz eksport Excel/CSV. Obejmuje tylko punkty ze statusem **Błąd** i wybraną kategorią **Błędnie zakończone gniazdko** lub **Błędnie zakończony keystone**. Zawiera numer, piętro, opis i datę testu; respektuje oznaczenia ostatniego gniazdka na piętrze. Nie zależy od wybranego trybu testowania. Zapisanie OK usuwa punkt z kolejnego eksportu. Pełny raport i zapisane wyniki pozostają dostępne.
+W zakładce **Raport** osobna sekcja **Raport wszystkich błędów** udostępnia podgląd/druk do PDF oraz eksport Excel/CSV. Obejmuje wszystkie punkty ze statusem **Błąd**, niezależnie od kategorii: uszkodzone kable, błędnie zakończone gniazdka i keystone’y oraz inne błędy z własnym opisem. Zawiera numer, piętro, opis i datę testu; respektuje oznaczenia ostatniego gniazdka na piętrze. Nie zależy od wybranego trybu testowania. Zapisanie OK usuwa punkt z kolejnego eksportu. Pełny raport i zapisane wyniki pozostają dostępne.
 
 ## Dodawanie gniazdek
 
