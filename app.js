@@ -1111,7 +1111,12 @@
       reloadingForUpdate = true;
       window.location.reload();
     });
-    window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+    window.addEventListener("load", async () => {
+      try {
+        const registration = await navigator.serviceWorker.register("./sw.js?v=9", { updateViaCache: "none" });
+        await registration.update();
+      } catch (_) {}
+    });
   }
 
   render();
